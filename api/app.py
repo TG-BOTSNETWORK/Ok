@@ -1,8 +1,11 @@
 from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 import os
 import uuid
 
 app = Flask(__name__)
+CORS(app)
+
 UPLOAD_FOLDER = 'uploads'
 DATABASE = 'database.txt'
 
@@ -15,18 +18,19 @@ def index():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+
     file = request.files['file']
     password = request.form.get('password', '')
     file_id = str(uuid.uuid4())
     file_path = os.path.join(UPLOAD_FOLDER, file_id)
 
-    # Save file and its info
     file.save(file_path)
     with open(DATABASE, 'a') as db:
         db.write(f'{file_id}|{file.filename}|{password}\n')
 
-    # Generate link
-    link = f"/file/{file_id}"
+    link = f"{request.host_url}file/{file_id}"
     return jsonify({'link': link})
 
 @app.route('/file/<file_id>', methods=['GET', 'POST'])
@@ -52,7 +56,6 @@ def serve_file(file_id):
                         return 'Incorrect password', 403
         return 'File not found', 404
 
-
-# Required for Vercel
-def create_app():
-    return app
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 4450))
+    app.run(host='0.0.0.0', port=port, debug=True)
